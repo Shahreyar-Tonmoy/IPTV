@@ -140,12 +140,7 @@ function ChannelCard({
             LIVE
           </span>
         )}
-        <span className="viewer-tag">{formatViewers(channel.viewers)} total</span>
-        {!!channel.liveViewers && (
-          <span className="viewer-tag live-viewer-tag">
-            {formatViewers(channel.liveViewers)} live
-          </span>
-        )}
+        {/* <span className="viewer-tag">{formatViewers(channel.viewers)} total</span> */}
       </div>
     </button>
   );

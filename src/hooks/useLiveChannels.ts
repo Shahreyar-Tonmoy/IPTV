@@ -9,8 +9,8 @@ export function useLiveChannels() {
     "/api/channels",
     fetcher,
     {
-      refreshInterval: 3000,
-      revalidateOnFocus: true,
+      refreshInterval: 0,
+      revalidateOnFocus: false,
       revalidateOnReconnect: true,
       dedupingInterval: 1000,
     }

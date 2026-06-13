@@ -54,11 +54,11 @@ export default function Header() {
             <span className="stat-pill-val">{liveCount}</span>
             <span className="stat-pill-label">Live Channels</span>
           </div>
-          <div className="stat-pill">
+          {/* <div className="stat-pill">
             <span className="stat-pill-dot viewers" />
             <span className="stat-pill-val">{formatLarge(totalViewers)}</span>
             <span className="stat-pill-label">Watching Now</span>
-          </div>
+          </div> */}
           <div className="stat-pill clock">
             <span className="stat-pill-label">BDT</span>
             <span className="stat-pill-val mono" suppressHydrationWarning>

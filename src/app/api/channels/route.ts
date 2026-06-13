@@ -1,24 +1,12 @@
 import { NextResponse } from "next/server";
 import { getPublicChannels } from "@/lib/channelService";
-import { getLiveViewerCounts } from "@/lib/viewerPresence";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const sourceChannels = await getPublicChannels();
-    const liveCounts = await getLiveViewerCounts(sourceChannels.map((channel) => channel.id));
-    const channels = sourceChannels.map((channel) => {
-      const liveViewers = liveCounts.get(channel.id) || 0;
-      const baseViewers = channel.viewers;
-      return {
-        ...channel,
-        baseViewers,
-        liveViewers,
-        viewers: baseViewers + liveViewers,
-      };
-    });
+    const channels = await getPublicChannels();
 
     return NextResponse.json(
       { channels, updatedAt: Date.now() },

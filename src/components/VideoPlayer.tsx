@@ -2,7 +2,6 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import { useHLSPlayer } from "@/hooks/useHLSPlayer";
 import { useLiveChannels } from "@/hooks/useLiveChannels";
-import { useViewerHeartbeat } from "@/hooks/useViewerHeartbeat";
 import { usePlayerStore } from "@/store/player";
 
 function formatViewers(n: number) {
@@ -20,6 +19,9 @@ const QUALITY_OPTIONS = [
   { value: "resolution-1440", label: "2K", min: 1261, max: 1800 },
   { value: "resolution-2160", label: "4K", min: 1801, max: Number.POSITIVE_INFINITY },
 ];
+
+const activeIconClass = (base: string, active: boolean) =>
+  `${base} ${active ? "is-active" : ""}`;
 
 export default function VideoPlayer() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -54,7 +56,6 @@ export default function VideoPlayer() {
     channels.find((channel) => channel.id === activeChannel?.id) || activeChannel;
 
   useHLSPlayer(videoRef);
-  useViewerHeartbeat(activeChannel?.id, Boolean(activeChannel && isPlaying));
   const availableHeights = qualityLevels.map((level) => level.height).filter(Boolean);
 
   const resetControlsTimer = useCallback(() => {
@@ -73,14 +74,17 @@ export default function VideoPlayer() {
 
   const toggleFullscreen = useCallback(async () => {
     if (!playerContainerRef.current) return;
-    if (!document.fullscreenElement) {
-      await playerContainerRef.current.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      await document.exitFullscreen();
-      setIsFullscreen(false);
+
+    try {
+      if (!document.fullscreenElement) {
+        await playerContainerRef.current.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (error) {
+      console.error("Unable to toggle fullscreen", error);
     }
-  }, [setIsFullscreen]);
+  }, []);
 
   useEffect(() => {
     const handler = () => setIsFullscreen(!!document.fullscreenElement);
@@ -116,33 +120,30 @@ export default function VideoPlayer() {
       onMouseMove={resetControlsTimer}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
-      {/* Stream badge */}
-      <div className="stream-badges">
-        <span className="live-badge">
-          <span className="live-dot" />
-          LIVE
-        </span>
-        <span className="quality-badge">{displayChannel.quality}</span>
-        <span className="lang-badge">{displayChannel.language}</span>
-        {!!displayChannel.liveViewers && (
-          <span className="lang-badge">{formatViewers(displayChannel.liveViewers)} live</span>
-        )}
-      </div>
+      <div className={`player-overlays ${showControls || !isPlaying ? "visible" : ""}`}>
+        <div className="stream-badges" aria-label="Stream information">
+          <span className="live-badge">
+            <span className="live-dot" />
+            LIVE
+          </span>
+          <span className="quality-badge">{displayChannel.quality}</span>
+          <span className="lang-badge">{displayChannel.language}</span>
+        </div>
 
-      {/* Stats overlay */}
-      <div className="stats-overlay">
-        <span className="stat">
-          <span className="stat-label">BUF</span>
-          <span className="stat-bar">
-            <span className="stat-fill" style={{ width: `${bufferHealth}%` }} />
+        <div className="stats-overlay" aria-label="Playback status">
+          <span className="stat">
+            <span className="stat-label">BUF</span>
+            <span className="stat-bar">
+              <span className="stat-fill" style={{ width: `${bufferHealth}%` }} />
+            </span>
           </span>
-        </span>
-        {bitrate > 0 && (
-          <span className="stat-text">
-            {bitrate > 1000 ? `${(bitrate / 1000).toFixed(1)}Mbps` : `${bitrate}Kbps`}
-          </span>
-        )}
-        {latency > 0 && <span className="stat-text">{latency}ms</span>}
+          {bitrate > 0 && (
+            <span className="stat-text">
+              {bitrate > 1000 ? `${(bitrate / 1000).toFixed(1)}Mbps` : `${bitrate}Kbps`}
+            </span>
+          )}
+          {latency > 0 && <span className="stat-text">{latency}ms</span>}
+        </div>
       </div>
 
       <video
@@ -158,7 +159,7 @@ export default function VideoPlayer() {
         onError={() => setIsLoading(false)}
       />
 
-      {isLoading && (
+      {isLoading && !isPlaying && (
         <div className="loading-overlay" aria-live="polite" aria-label="Loading stream">
           <div className="loading-spinner" />
         </div>
@@ -184,28 +185,31 @@ export default function VideoPlayer() {
               <div className="match-label-sm">{displayChannel.currentMatch}</div>
             )}
           </div>
-          <div className="viewer-count">
+          {/* <div className="viewer-count">
             <span className="viewer-dot">●</span>
             {formatViewers(displayChannel.viewers)} watching
-          </div>
+          </div> */}
         </div>
 
         {/* Control buttons */}
         <div className="controls-row">
           <div className="controls-left">
             <button
-              className="ctrl-btn play-pause"
+              className={activeIconClass("ctrl-btn play-pause", isPlaying)}
               onClick={() => setIsPlaying(!isPlaying)}
               aria-label={isPlaying ? "Pause" : "Play"}
+              title={isPlaying ? "Pause" : "Play"}
             >
               {isPlaying ? "⏸" : "▶"}
             </button>
 
             <div className="volume-group">
               <button
-                className="ctrl-btn"
+                className={`ctrl-btn volume-btn ${isMuted || volume === 0 ? "is-muted" : ""} ${volume > 50 && !isMuted ? "is-loud" : ""
+                  }`}
                 onClick={() => setIsMuted(!isMuted)}
                 aria-label={isMuted ? "Unmute" : "Mute"}
+                title={isMuted ? "Unmute" : "Mute"}
               >
                 {isMuted ? "🔇" : volume > 50 ? "🔊" : "🔉"}
               </button>
@@ -258,7 +262,7 @@ export default function VideoPlayer() {
               </select>
             </label>
             <button
-              className="ctrl-btn theater-btn"
+              className={activeIconClass("ctrl-btn theater-btn", isTheaterMode)}
               onClick={() => setIsTheaterMode(!isTheaterMode)}
               aria-label="Theater mode"
               title="Theater Mode"
@@ -266,10 +270,10 @@ export default function VideoPlayer() {
               {isTheaterMode ? "⊡" : "⊞"}
             </button>
             <button
-              className="ctrl-btn fullscreen-btn"
+              className={activeIconClass("ctrl-btn fullscreen-btn", isFullscreen)}
               onClick={toggleFullscreen}
-              aria-label="Fullscreen"
-              title="Fullscreen"
+              aria-label={isFullscreen ? "Exit fullscreen" : "Fullscreen"}
+              title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
             >
               {isFullscreen ? "⤓" : "⤢"}
             </button>
