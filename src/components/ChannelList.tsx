@@ -40,7 +40,7 @@ export default function ChannelList() {
     return matchCat && matchSearch;
   }).sort((a, b) => Number(b.isLive) - Number(a.isLive) || b.viewers - a.viewers);
 
-  const totalViewers = channels.reduce((sum, channel) => sum + channel.viewers, 0);
+  // const totalViewers = channels.reduce((sum, channel) => sum + channel.viewers, 0);
 
   return (
     <aside className="channel-sidebar">
@@ -50,10 +50,10 @@ export default function ChannelList() {
           <span className="channel-count">{channels.filter((c) => c.isLive).length}</span>
         </h2>
         <div className="sidebar-tools">
-          <span>{formatViewers(totalViewers)} watching</span>
-          <button type="button" onClick={() => refresh()} disabled={isValidating}>
+          {/* <span>{formatViewers(totalViewers)} watching</span> */}
+          {/* <button type="button" onClick={() => refresh()} disabled={isValidating}>
             {isValidating ? "Syncing" : "Refresh"}
-          </button>
+          </button> */}
         </div>
         <input
           type="text"
