@@ -23,6 +23,14 @@ const QUALITY_OPTIONS = [
 const activeIconClass = (base: string, active: boolean) =>
   `${base} ${active ? "is-active" : ""}`;
 
+// Extend HTMLVideoElement with webkit fullscreen APIs used on iOS Safari
+type IOSVideo = HTMLVideoElement & {
+  webkitEnterFullscreen?: () => void;
+  webkitExitFullscreen?: () => void;
+  webkitDisplayingFullscreen?: boolean;
+  webkitSupportsFullscreen?: boolean;
+};
+
 export default function VideoPlayer() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const playerContainerRef = useRef<HTMLDivElement>(null);
@@ -73,11 +81,25 @@ export default function VideoPlayer() {
   }, []);
 
   const toggleFullscreen = useCallback(async () => {
-    if (!playerContainerRef.current) return;
+    const container = playerContainerRef.current;
+    const video = videoRef.current as IOSVideo | null;
 
+    // iOS Safari: fullscreen is only supported on the <video> element via webkit API.
+    // Calling requestFullscreen() on a <div> silently fails or throws on iOS.
+    if (video?.webkitEnterFullscreen) {
+      if (video.webkitDisplayingFullscreen) {
+        video.webkitExitFullscreen?.();
+      } else {
+        video.webkitEnterFullscreen();
+      }
+      return;
+    }
+
+    // Standard Fullscreen API — Chrome, Firefox, desktop Safari, etc.
+    if (!container) return;
     try {
       if (!document.fullscreenElement) {
-        await playerContainerRef.current.requestFullscreen();
+        await container.requestFullscreen();
       } else {
         await document.exitFullscreen();
       }
@@ -87,9 +109,24 @@ export default function VideoPlayer() {
   }, []);
 
   useEffect(() => {
-    const handler = () => setIsFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", handler);
-    return () => document.removeEventListener("fullscreenchange", handler);
+    // Standard fullscreen change (desktop browsers + Android Chrome)
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange); // desktop Safari
+
+    // iOS fires fullscreen events on the video element, not the document
+    const video = videoRef.current as IOSVideo | null;
+    const onIOSBegin = () => setIsFullscreen(true);
+    const onIOSEnd = () => setIsFullscreen(false);
+    video?.addEventListener("webkitbeginfullscreen", onIOSBegin);
+    video?.addEventListener("webkitendfullscreen", onIOSEnd);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+      video?.removeEventListener("webkitbeginfullscreen", onIOSBegin);
+      video?.removeEventListener("webkitendfullscreen", onIOSEnd);
+    };
   }, [setIsFullscreen]);
 
   if (!displayChannel) {
@@ -185,10 +222,6 @@ export default function VideoPlayer() {
               <div className="match-label-sm">{displayChannel.currentMatch}</div>
             )}
           </div>
-          {/* <div className="viewer-count">
-            <span className="viewer-dot">●</span>
-            {formatViewers(displayChannel.viewers)} watching
-          </div> */}
         </div>
 
         {/* Control buttons */}
@@ -205,8 +238,9 @@ export default function VideoPlayer() {
 
             <div className="volume-group">
               <button
-                className={`ctrl-btn volume-btn ${isMuted || volume === 0 ? "is-muted" : ""} ${volume > 50 && !isMuted ? "is-loud" : ""
-                  }`}
+                className={`ctrl-btn volume-btn ${isMuted || volume === 0 ? "is-muted" : ""} ${
+                  volume > 50 && !isMuted ? "is-loud" : ""
+                }`}
                 onClick={() => setIsMuted(!isMuted)}
                 aria-label={isMuted ? "Unmute" : "Mute"}
                 title={isMuted ? "Unmute" : "Mute"}
@@ -242,7 +276,6 @@ export default function VideoPlayer() {
                   const isAvailable = availableHeights.some(
                     (height) => height >= option.min && height <= option.max
                   );
-
                   return (
                     <option key={option.value} value={option.value} disabled={!isAvailable}>
                       {option.label}
