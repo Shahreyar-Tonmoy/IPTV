@@ -13,8 +13,37 @@ function getViewerRegion(req: NextRequest): string {
     req.headers.get("cf-ipcountry") ||
     "XX";
 
-  const asia = ["IN", "BD", "PK", "SG", "MY", "TH", "JP", "KR", "CN", "VN", "ID", "PH"];
-  const europe = ["GB", "DE", "FR", "IT", "ES", "NL", "PL", "SE", "NO", "DK", "FI", "BE", "CH", "AT", "PT"];
+  const asia = [
+    "IN",
+    "BD",
+    "PK",
+    "SG",
+    "MY",
+    "TH",
+    "JP",
+    "KR",
+    "CN",
+    "VN",
+    "ID",
+    "PH",
+  ];
+  const europe = [
+    "GB",
+    "DE",
+    "FR",
+    "IT",
+    "ES",
+    "NL",
+    "PL",
+    "SE",
+    "NO",
+    "DK",
+    "FI",
+    "BE",
+    "CH",
+    "AT",
+    "PT",
+  ];
 
   if (asia.includes(country)) return "asia";
   if (europe.includes(country)) return "europe";
@@ -33,12 +62,18 @@ export async function GET(req: NextRequest) {
   if (hasMongoUri()) {
     try {
       await connectDb();
-      const channel = await ChannelModel.findOne({ _id: channelId, isLive: true })
+      const channel = await ChannelModel.findOne({
+        _id: channelId,
+        isLive: true,
+      })
         .select("streamUrl backupUrls name quality")
         .lean();
 
       if (!channel) {
-        return NextResponse.json({ error: "Channel not found or offline" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Channel not found or offline" },
+          { status: 404 },
+        );
       }
 
       const backupUrl =
@@ -50,12 +85,15 @@ export async function GET(req: NextRequest) {
         {
           channelId,
           streamUrl: backupUrl || channel.streamUrl,
-          backupUrls: (channel.backupUrls || []).map((_, index) => `/api/stream?channelId=${channelId}&backup=${index}`),
+          backupUrls: (channel.backupUrls || []).map(
+            (_: string, index: number) =>
+              `/api/stream?channelId=${channelId}&backup=${index}`,
+          ),
           region: getViewerRegion(req),
           quality: channel.quality,
           timestamp: Date.now(),
         },
-        { headers: { "Cache-Control": "private, no-store" } }
+        { headers: { "Cache-Control": "private, no-store" } },
       );
     } catch (error) {
       return errorResponse(error, "Unable to resolve stream from MongoDB");
@@ -64,7 +102,10 @@ export async function GET(req: NextRequest) {
 
   const channel = CHANNELS.find((item) => item.id === channelId && item.isLive);
   if (!channel) {
-    return NextResponse.json({ error: "Channel not found or offline" }, { status: 404 });
+    return NextResponse.json(
+      { error: "Channel not found or offline" },
+      { status: 404 },
+    );
   }
 
   const backupUrl =
@@ -76,11 +117,13 @@ export async function GET(req: NextRequest) {
     {
       channelId,
       streamUrl: backupUrl || channel.streamUrl,
-      backupUrls: (channel.backupUrls || []).map((_, index) => `/api/stream?channelId=${channelId}&backup=${index}`),
+      backupUrls: (channel.backupUrls || []).map(
+        (_, index) => `/api/stream?channelId=${channelId}&backup=${index}`,
+      ),
       region: getViewerRegion(req),
       quality: channel.quality,
       timestamp: Date.now(),
     },
-    { headers: { "Cache-Control": "private, no-store" } }
+    { headers: { "Cache-Control": "private, no-store" } },
   );
 }
